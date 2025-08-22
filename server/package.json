@@ -1,0 +1,41 @@
+{
+  "name": "ai-test",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "imports": {
+    "#*": "./src/*"
+  },
+  "scripts": {
+    "dev": "tsx --watch src/server.ts",
+    "migrate:dev": "drizzle-kit migrate --schema ./src/db/schema.ts --out ./drizzle/migrations --url $DATABASE_URL",
+    "migrate:push": "drizzle-kit push --schema ./src/db/schema.ts --url $DATABASE_URL"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.59.0",
+    "@trpc/client": "^11.4.4",
+    "@trpc/server": "^11.4.4",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "drizzle-orm": "^0.44.4",
+    "express": "^5.1.0",
+    "mssql": "^11.0.1",
+    "openai": "^5.12.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.2",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/mssql": "^9.1.7",
+    "@types/node": "^24.2.1",
+    "@types/pg": "^8.15.5",
+    "drizzle-kit": "^0.31.4",
+    "tsx": "^4.20.4",
+    "typescript": "^5.9.2"
+  }
+}
