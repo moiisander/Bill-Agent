@@ -10,6 +10,7 @@ app.use(cors({
   credentials: true,
 }));
 
+// tRPC routes
 app.use(
   "/",
   trpcExpress.createExpressMiddleware({

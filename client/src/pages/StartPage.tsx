@@ -1,81 +1,90 @@
-import { trpc } from "../utils/trpc";
+import { useState } from "react";
+import { InvoiceUploadForm } from "../components/invoice/InvoiceUploadForm";
+import { GeneratedVoucher } from "../components/invoice/GeneratedVoucher";
+import { ExistingVouchers } from "../components/invoice/ExistingVouchers";
+import { ProcessingStatus } from "../components/invoice/ProcessingStatus";
+
+interface VoucherData {
+  voucherNumber: string;
+  date: string;
+  vendor: string;
+  amount: number;
+  description: string;
+  accountCode: string;
+  expenseCategory: string;
+  lineItems: Array<{
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    amount: number;
+  }>;
+  taxAmount: number;
+  subtotal: number;
+  notes: string;
+}
 
 export default function StartPage() {
-  const { data, error, isLoading } = trpc.voucher.list.useQuery()
+  const [voucher, setVoucher] = useState<VoucherData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleVoucherGenerated = (
+    voucherData: VoucherData,
+    confidence: number
+  ) => {
+    setVoucher(voucherData);
+    setOcrConfidence(confidence);
+    setError(null);
+  };
+
+  const handleError = (errorMessage: string) => {
+    setError(errorMessage);
+    if (errorMessage) {
+      setVoucher(null);
+      setOcrConfidence(null);
+    }
+  };
+
+  const handleProcessingStart = () => {
+    setIsProcessing(true);
+  };
+
+  const handleProcessingEnd = () => {
+    setIsProcessing(false);
+  };
 
   return (
     <div className="mx-auto max-w-4xl">
-      <h1 className="text-3xl font-bold text-foreground mb-6">New Voucher</h1>
-      
-      <div className="rounded-lg border bg-card p-6 mb-6">
-        <h2 className="text-xl font-semibold text-card-foreground mb-4">Create New Voucher</h2>
-        <p className="text-muted-foreground mb-4">
-          Fill out the form below to create a new voucher entry.
-        </p>
-        
-        {/* Placeholder for voucher form */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Voucher Number
-              </label>
-              <input 
-                type="text" 
-                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-                placeholder="Enter voucher number"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">
-                Date
-              </label>
-              <input 
-                type="date" 
-                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Description
-            </label>
-            <textarea 
-              className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground"
-              rows={3}
-              placeholder="Enter voucher description"
-            />
-          </div>
-          <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
-            Create Voucher
-          </button>
-        </div>
-      </div>
-      
+      <h1 className="text-3xl font-bold text-foreground mb-6">
+        Invoice Processing
+      </h1>
+
+      {/* Invoice Upload Form */}
+      <InvoiceUploadForm
+        onVoucherGenerated={handleVoucherGenerated}
+        onError={handleError}
+        onProcessingStart={handleProcessingStart}
+        onProcessingEnd={handleProcessingEnd}
+      />
+
+      {/* Error Display */}
       {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-          Error loading data
+        <div className="p-3 bg-destructive/10 border border-destructive rounded-md mb-6">
+          <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
-      
-      {isLoading && (
-        <div className="rounded-lg border bg-muted p-4 text-muted-foreground">
-          Loading...
-        </div>
+
+      {/* Processing Status */}
+      <ProcessingStatus isProcessing={isProcessing} />
+
+      {/* Generated Voucher */}
+      {voucher && ocrConfidence && (
+        <GeneratedVoucher voucher={voucher} ocrConfidence={ocrConfidence} />
       )}
-      
-      {data && (
-        <div className="rounded-lg border bg-card p-6">
-          <h2 className="text-xl font-semibold text-card-foreground mb-4">Recent Vouchers</h2>
-          {data[1] ? (
-            <div className="space-y-2">
-              <p><strong>Latest Voucher:</strong> {data[1].voucherNumber || "No voucher number"}</p>
-            </div>
-          ) : (
-            <p className="text-muted-foreground">No recent vouchers available</p>
-          )}
-        </div>
-      )}
+
+      {/* Existing Vouchers */}
+      <ExistingVouchers />
     </div>
   );
 }
