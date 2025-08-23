@@ -1,150 +1,74 @@
-import OpenAI from 'openai';
-import Tesseract from 'tesseract.js';
-import { invoices, processingLogs } from '#db/schema.js';
-import { db } from '#db/index.js';
-import { eq } from 'drizzle-orm';
+import OpenAI from "openai";
+import { files, invoiceLineItems, invoices, voucherLines, vouchers } from "#db/schema.js";
+import { db } from "#db/index.js";
+import { eq } from "drizzle-orm";
+import { OCRService } from "./ocr-service.js";
 
 export class InvoiceProcessor {
   private openai: OpenAI;
+  private ocrService: OCRService;
 
   constructor() {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
+    this.ocrService = new OCRService();
   }
 
-  /**
-   * Process an uploaded invoice file
-   */
-  async processInvoice(filePath: string, fileType: string): Promise<number> {
-    let invoiceId: number | undefined;
-    
+  async processInvoice(filePath: string, fileType: string, fileName: string) {
     try {
-      // Create invoice record
-      const [invoice] = await db.insert(invoices).values({
-        originalFile: filePath,
-        fileType: fileType,
-        processingStatus: 'processing',
-        vendorName: 'Unknown', // Will be updated after OCR
-        totalAmount: '0.00',
-      }).returning();
+      const ocrResult = await this.ocrService.performOCR(filePath);
 
-      invoiceId = invoice.id;
-
-      // Log processing start
-      await this.logProcessingStep(invoiceId, 'start', 'success', { filePath, fileType });
-
-      // Step 1: OCR Processing
-      const ocrResult = await this.performOCR(filePath);
-      await this.logProcessingStep(invoiceId, 'ocr', 'success', { confidence: ocrResult.confidence });
-
-      // Step 2: Extract structured data from OCR text
       const extractedData = await this.extractInvoiceData(ocrResult.text);
-      await this.logProcessingStep(invoiceId, 'extraction', 'success', extractedData);
 
-      // Step 3: GAAP Compliance Analysis
       const gaapAnalysis = await this.analyzeGAAPCompliance(extractedData);
-      await this.logProcessingStep(invoiceId, 'gaap_analysis', 'success', gaapAnalysis);
 
-      // Step 4: Update invoice with processed data
-      await db.update(invoices)
-        .set({
-          vendorName: extractedData.vendorName || 'Unknown',
-          invoiceNumber: extractedData.invoiceNumber,
-          invoiceDate: extractedData.invoiceDate,
-          dueDate: extractedData.dueDate,
-          subtotal: extractedData.subtotal,
-          taxAmount: extractedData.taxAmount,
-          totalAmount: extractedData.totalAmount,
-          lineItems: extractedData.lineItems,
-          ocrData: {
-            rawText: ocrResult.text,
-            confidence: ocrResult.confidence,
-            extractedFields: extractedData,
-          },
-          gaapData: gaapAnalysis,
-          processingStatus: 'completed',
-        })
-        .where(eq(invoices.id, invoiceId));
+      const fileRecord = await this.saveFile(filePath, fileName);
+      const invoiceRecord = await this.saveInvoice(fileRecord.id, extractedData);
+      const voucherRecord = await this.saveVoucher(invoiceRecord.id, gaapAnalysis);
 
-      await this.logProcessingStep(invoiceId, 'completion', 'success', { status: 'completed' });
-
-      return invoiceId;
+      return {
+        file: fileRecord,
+        invoice: invoiceRecord,
+        voucher: voucherRecord,
+      };
 
     } catch (error) {
-      console.error('Error processing invoice:', error);
-      
-      // Log error and update status
-      if (invoiceId !== undefined) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        const errorStack = error instanceof Error ? error.stack : undefined;
-        
-        await this.logProcessingStep(invoiceId, 'error', 'error', { 
-          error: errorMessage,
-          stack: errorStack 
-        });
-        
-        await db.update(invoices)
-          .set({
-            processingStatus: 'error',
-            processingErrors: [errorMessage],
-          })
-          .where(eq(invoices.id, invoiceId));
-      }
-      
+      console.error("Error processing invoice:", error);
       throw error;
     }
   }
 
-  /**
-   * Perform OCR on the uploaded file
-   */
-  private async performOCR(filePath: string): Promise<{ text: string; confidence: number }> {
-    try {
-      const result = await Tesseract.recognize(filePath, 'eng', {
-        logger: m => console.log(m),
-      });
-
-      return {
-        text: result.data.text,
-        confidence: result.data.confidence || 0,
-      };
-    } catch (error) {
-      console.error('OCR Error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown OCR error';
-      throw new Error(`OCR processing failed: ${errorMessage}`);
-    }
-  }
-
-  /**
-   * Extract structured data from OCR text using OpenAI
-   */
   private async extractInvoiceData(ocrText: string) {
     const prompt = `
-    Extract the following information from this invoice text. Return only a valid JSON object with these exact field names:
-    
-    {
-      "vendorName": "string",
-      "invoiceNumber": "string", 
-      "invoiceDate": "YYYY-MM-DD",
-      "dueDate": "YYYY-MM-DD",
-      "subtotal": "number",
-      "taxAmount": "number",
-      "totalAmount": "number",
-      "lineItems": [
-        {
-          "description": "string",
-          "quantity": "number",
-          "unitPrice": "number", 
-          "amount": "number"
-        }
-      ]
-    }
-    
-    Invoice text:
-    ${ocrText}
-    
-    If a field cannot be determined, use null. Ensure all monetary amounts are numbers without currency symbols.
+      Extract the following information from this invoice text. 
+
+      Respond ONLY with a valid JSON object. Do not include explanations or text outside the JSON. 
+      Dates must be in ISO 8601 format (YYYY-MM-DD). 
+      All numbers must be valid JSON numbers (no quotes, no commas, no currency symbols). 
+      If a field cannot be determined, use null.
+
+      Schema:
+      {
+        "vendorName": "string",
+        "invoiceNumber": "string", 
+        "invoiceDate": "YYYY-MM-DD",
+        "dueDate": "YYYY-MM-DD",
+        "subtotal": number,
+        "taxAmount": number,
+        "totalAmount": number,
+        "lineItems": [
+          {
+            "description": "string",
+            "quantity": number,
+            "unitPrice": number, 
+            "amount": number
+          }
+        ]
+      }
+
+      Invoice text:
+      ${ocrText}
     `;
 
     try {
@@ -153,51 +77,60 @@ export class InvoiceProcessor {
         messages: [
           {
             role: "system",
-            content: "You are an expert at extracting structured data from invoice text. Always return valid JSON."
+            content:
+              "You are an expert at extracting structured data from invoice text. Always return valid JSON.",
           },
           {
             role: "user",
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         temperature: 0.1,
       });
 
       const response = completion.choices[0]?.message?.content;
-      if (!response) throw new Error('No response from OpenAI');
+      if (!response) throw new Error("No response from OpenAI");
 
       return JSON.parse(response);
     } catch (error) {
-      console.error('OpenAI extraction error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown extraction error';
+      console.error("OpenAI extraction error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown extraction error";
       throw new Error(`Data extraction failed: ${errorMessage}`);
     }
   }
 
-  /**
-   * Analyze GAAP compliance using OpenAI
-   */
   private async analyzeGAAPCompliance(invoiceData: any) {
     const prompt = `
-    Analyze this invoice data for US GAAP compliance and provide accounting guidance:
-    
-    Invoice Data: ${JSON.stringify(invoiceData, null, 2)}
-    
-    Provide a JSON response with:
-    {
-      "accountClassification": "string (e.g., Operating Expense, Capital Expense, etc.)",
-      "expenseCategory": "string (e.g., Office Supplies, Professional Services, etc.)",
-      "taxTreatment": "string (e.g., Deductible, Non-deductible, etc.)",
-      "complianceNotes": ["array of compliance considerations"],
-      "suggestedAccounts": ["array of suggested GL account codes"]
-    }
-    
-    Consider:
-    - Proper expense classification
-    - Capitalization vs. expensing rules
-    - Tax implications
-    - Industry best practices
-    - Audit trail requirements
+      You are an accounting assistant. Analyze the following invoice data for US GAAP compliance and suggest how it should be recorded in the accounting system.
+
+      Invoice Data:
+      ${JSON.stringify(invoiceData, null, 2)}
+
+      Respond ONLY with a valid JSON object. Do not include any explanations or text outside the JSON.
+
+      JSON structure:
+      {
+        "accountClassification": "string (e.g., Operating Expense, Capital Expense, etc.)",
+        "expenseCategory": "string (e.g., Office Supplies, Professional Services, etc.)",
+        "taxTreatment": "string (e.g., Deductible, Non-deductible, etc.)",
+        "complianceNotes": ["array of compliance considerations"],
+        "voucherLines": [
+          {
+            "accountCode": "string (e.g., 6000)",
+            "description": "string",
+            "debit": number,
+            "credit": number
+          }
+        ]
+      }
+
+      Rules:
+      - Classify expenses correctly under US GAAP (e.g., expense vs. capital asset).
+      - Always return at least two voucherLines (double-entry: total debits = total credits).
+      - Use numeric values for debit and credit (not strings).
+      - Use neutral, professional accounting language.
+      - Include notes that help maintain audit trail (e.g., "attach vendor invoice").
     `;
 
     try {
@@ -206,61 +139,80 @@ export class InvoiceProcessor {
         messages: [
           {
             role: "system",
-            content: "You are a certified public accountant and US GAAP expert. Provide accurate accounting guidance."
+            content:
+              "You are a certified public accountant and US GAAP expert. Provide accurate accounting guidance.",
           },
           {
             role: "user",
-            content: prompt
-          }
+            content: prompt,
+          },
         ],
         temperature: 0.1,
       });
 
       const response = completion.choices[0]?.message?.content;
-      if (!response) throw new Error('No response from OpenAI');
+      if (!response) throw new Error("No response from OpenAI");
 
       return JSON.parse(response);
     } catch (error) {
-      console.error('OpenAI GAAP analysis error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown GAAP analysis error';
+      console.error("OpenAI GAAP analysis error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown GAAP analysis error";
       throw new Error(`GAAP analysis failed: ${errorMessage}`);
     }
   }
 
-  /**
-   * Log processing steps for audit trail
-   */
-  private async logProcessingStep(
-    invoiceId: number, 
-    step: string, 
-    status: string, 
-    details: any
-  ) {
-    await db.insert(processingLogs).values({
+  private async saveFile(filePath: string, fileName: string) {
+    const [fileRecord] = await db.insert(files).values({
+      fileName: fileName,
+      filePath: filePath,
+    }).returning();
+    return fileRecord;
+  }
+
+  private async saveInvoice(fileId: number, extractedData: any) {
+    const [invoiceRecord] = await db.insert(invoices).values({
+      fileId,
+      vendorName: extractedData.vendorName,
+      invoiceNumber: extractedData.invoiceNumber,
+      invoiceDate: extractedData.invoiceDate,
+      dueDate: extractedData.dueDate,
+      subtotal: extractedData.subtotal,
+      taxAmount: extractedData.taxAmount,
+      totalAmount: extractedData.totalAmount,
+    }).returning();
+
+    for (const item of extractedData.lineItems) {
+      await db.insert(invoiceLineItems).values({
+        invoiceId: invoiceRecord.id,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        amount: item.amount,
+      });
+    }
+
+    return invoiceRecord;
+  }
+
+  private async saveVoucher(invoiceId: number, gaapAnalysis: any) {
+    const [voucherRecord] = await db.insert(vouchers).values({
       invoiceId,
-      step,
-      status,
-      details,
-    });
-  }
+      accountClassification: gaapAnalysis.accountClassification,
+      expenseCategory: gaapAnalysis.expenseCategory,
+      taxTreatment: gaapAnalysis.taxTreatment,
+    }).returning();
 
-  /**
-   * Get processing status for an invoice
-   */
-  async getProcessingStatus(invoiceId: number) {
-    const invoice = await db.select().from(invoices).where(eq(invoices.id, invoiceId));
-    const logs = await db.select().from(processingLogs).where(eq(processingLogs.invoiceId, invoiceId));
-    
-    return {
-      invoice: invoice[0],
-      logs: logs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()),
-    };
-  }
+    for (const line of gaapAnalysis.voucherLines) {
+      await db.insert(voucherLines).values({
+        voucherId: voucherRecord.id,
+        accountCode: line.accountCode,
+        description: line.description,
+        debit: line.debit,
+        credit: line.credit,
+      });
+    }
 
-  /**
-   * Get all invoices with processing status
-   */
-  async getAllInvoices() {
-    return await db.select().from(invoices).orderBy(invoices.createdAt);
+    return voucherRecord;
   }
-} 
+}

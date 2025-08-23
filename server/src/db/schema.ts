@@ -1,77 +1,49 @@
-import { pgTable, serial, varchar, numeric, date, jsonb, timestamp, text } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, numeric, date, jsonb, timestamp, text, integer } from "drizzle-orm/pg-core";
 
-export const vouchers = pgTable("vouchers", {
+export const files = pgTable("files", {
   id: serial("id").primaryKey(),
-  voucherNumber: varchar("voucher_number", { length: 50 }).notNull().unique(),
-  date: date("date").notNull(), // store as YYYY-MM-DD string
-  vendor: varchar("vendor", { length: 255 }).notNull(),
-  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(), // store as string
-  status: varchar("status", { length: 20 }).notNull().default("draft"),
-  data: jsonb("data").$type<{
-    description?: string;
-    account?: string;
-    approvedBy?: string;
-    supportingDocs?: string[];
-  }>(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  filePath: text("file_path").notNull(),
+  uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
 });
 
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
-  invoiceNumber: varchar("invoice_number", { length: 100 }),
+  fileId: integer("file_id").references(() => files.id).notNull(),
   vendorName: varchar("vendor_name", { length: 255 }).notNull(),
-  vendorAddress: text("vendor_address"),
+  invoiceNumber: varchar("invoice_number", { length: 100 }).notNull(),
   invoiceDate: date("invoice_date"),
   dueDate: date("due_date"),
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }),
   taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }),
-  totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(),
-  currency: varchar("currency", { length: 3 }).default("USD"),
-  
-  // OCR extracted data
-  ocrData: jsonb("ocr_data").$type<{
-    rawText?: string;
-    confidence?: number;
-    extractedFields?: Record<string, any>;
-  }>(),
-  
-  // GAAP compliance data
-  gaapData: jsonb("gaap_data").$type<{
-    accountClassification?: string;
-    expenseCategory?: string;
-    taxTreatment?: string;
-    complianceNotes?: string[];
-    suggestedAccounts?: string[];
-  }>(),
-  
-  // Line items
-  lineItems: jsonb("line_items").$type<Array<{
-    description: string;
-    quantity?: number;
-    unitPrice?: number;
-    amount: number;
-    accountCode?: string;
-  }>>(),
-  
-  // File attachments
-  originalFile: varchar("original_file", { length: 500 }), // path to uploaded file
-  fileType: varchar("file_type", { length: 50 }), // PDF, IMAGE, etc.
-  
-  processingStatus: varchar("processing_status", { length: 50 }).default("pending"),
-  processingErrors: jsonb("processing_errors").$type<string[]>(),
-  
-  voucherId: serial("voucher_id").references(() => vouchers.id),
-  
+  totalAmount: numeric("total_amount", { precision: 12, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-export const processingLogs = pgTable("processing_logs", {
+export const invoiceLineItems = pgTable("invoice_line_items", {
   id: serial("id").primaryKey(),
-  invoiceId: serial("invoice_id").references(() => invoices.id),
-  step: varchar("step", { length: 100 }).notNull(),
-  status: varchar("status", { length: 50 }).notNull(), // success, error, pending
-  details: jsonb("details"),
-  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  invoiceId: integer("invoice_id").references(() => invoices.id).notNull(),
+  description: text("description").notNull(),
+  quantity: numeric("quantity", { precision: 12, scale: 2 }).notNull(),
+  unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
 });
+
+export const vouchers = pgTable("vouchers", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => invoices.id).notNull(),
+  accountClassification: varchar("account_classification", { length: 100 }).notNull(),
+  expenseCategory: varchar("expense_category", { length: 100 }).notNull(),
+  taxTreatment: varchar("tax_treatment", { length: 50 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const voucherLines = pgTable("voucher_lines", {
+  id: serial("id").primaryKey(),
+  voucherId: integer("voucher_id").references(() => vouchers.id).notNull(),
+  accountCode: varchar("account_code", { length: 50 }).notNull(),
+  description: text("description").notNull(),
+  debit: numeric("debit", { precision: 12, scale: 2 }),
+  credit: numeric("credit", { precision: 12, scale: 2 }),
+});
+
