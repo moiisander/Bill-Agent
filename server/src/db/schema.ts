@@ -11,6 +11,7 @@ export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
   fileId: integer("file_id").references(() => files.id).notNull(),
   vendorName: varchar("vendor_name", { length: 255 }).notNull(),
+  vendorAddress: varchar("vendor_address", { length: 255 }).notNull(),
   invoiceNumber: varchar("invoice_number", { length: 100 }).notNull(),
   invoiceDate: date("invoice_date"),
   dueDate: date("due_date"),
@@ -32,10 +33,18 @@ export const invoiceLineItems = pgTable("invoice_line_items", {
 export const vouchers = pgTable("vouchers", {
   id: serial("id").primaryKey(),
   invoiceId: integer("invoice_id").references(() => invoices.id).notNull(),
+  voucherNumber: varchar("voucher_number", { length: 20 }).unique(),
+  invoiceNumber: varchar("invoice_number", { length: 100 }).notNull(),
+  vendorName: varchar("vendor_name", { length: 255 }).notNull(),
+  vendorAddress: varchar("vendor_address", { length: 255 }),
+  companyName: varchar("company_name", { length: 255 }).notNull(),
+  companyAddress: varchar("company_address", { length: 255 }).notNull(),
   accountClassification: varchar("account_classification", { length: 100 }).notNull(),
   expenseCategory: varchar("expense_category", { length: 100 }).notNull(),
   taxTreatment: varchar("tax_treatment", { length: 50 }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  issueDate: date("issue_date"),
+  dueDate: date("due_date"),
 });
 
 export const voucherLines = pgTable("voucher_lines", {

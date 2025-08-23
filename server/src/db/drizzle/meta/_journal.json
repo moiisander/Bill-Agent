@@ -8,6 +8,20 @@
       "when": 1755937740179,
       "tag": "0000_structured_invoice_voucher_db",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1755956611622,
+      "tag": "0001_added_more_relevant_data",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1755959610185,
+      "tag": "0002_fix_wrongfully_unique_id",
+      "breakpoints": true
     }
   ]
 }

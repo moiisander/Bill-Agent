@@ -5,9 +5,7 @@ export class OCRService {
     filePath: string
   ): Promise<{ text: string; confidence: number }> {
     try {
-      const result = await Tesseract.recognize(filePath, "eng", {
-        logger: (m) => console.log(m),
-      });
+      const result = await Tesseract.recognize(filePath, "eng");
 
       return {
         text: result.data.text,

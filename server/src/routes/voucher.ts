@@ -58,6 +58,8 @@ export const voucherRouter = router({
         try {
             const invoiceRows = await db.select().from(invoices);
 
+            if (invoiceRows.length === 0) return [];
+
             const fileIds = invoiceRows.map((i) => i.fileId);
             const invoiceIds = invoiceRows.map((i) => i.id);
 
@@ -65,41 +67,58 @@ export const voucherRouter = router({
                 .select()
                 .from(files)
                 .where(inArray(files.id, fileIds));
-            const lineItemsRows = await db
-                .select()
-                .from(invoiceLineItems)
-                .where(inArray(invoiceLineItems.invoiceId, invoiceIds));
+
             const vouchersRows = await db
                 .select()
                 .from(vouchers)
                 .where(inArray(vouchers.invoiceId, invoiceIds));
 
+            if (vouchersRows.length === 0) return []; // no vouchers, return empty list
+
             const voucherIds = vouchersRows.map((v) => v.id);
+
             const voucherLinesRows = await db
                 .select()
                 .from(voucherLines)
                 .where(inArray(voucherLines.voucherId, voucherIds));
 
-            const structured = invoiceRows.map((inv) => {
-                const file = filesRows.find((f) => f.id === inv.fileId) || null;
-                const lineItems = lineItemsRows.filter(
-                    (li) => li.invoiceId === inv.id
-                );
-                const voucher =
-                    vouchersRows.find((v) => v.invoiceId === inv.id) || null;
-                const voucherLines = voucher
-                    ? voucherLinesRows.filter(
-                          (vl) => vl.voucherId === voucher.id
-                      )
-                    : [];
+            const lineItemsRows = await db
+                .select()
+                .from(invoiceLineItems)
+                .where(inArray(invoiceLineItems.invoiceId, invoiceIds));
 
-                return {
-                    ...inv,
-                    file,
-                    lineItems,
-                    voucher: voucher ? { ...voucher, voucherLines } : null,
-                };
-            });
+            const structured = invoiceRows
+                .map((inv) => {
+                    const voucherRecord =
+                        vouchersRows.find((v) => v.invoiceId === inv.id) ||
+                        null;
+
+                    if (!voucherRecord) return null;
+
+                    const fileRecord =
+                        filesRows.find((f) => f.id === inv.fileId) || null;
+
+                    const invoiceWithLineItems = {
+                        ...inv,
+                        lineItems: lineItemsRows.filter(
+                            (li) => li.invoiceId === inv.id
+                        ),
+                    };
+
+                    const voucherWithLines = {
+                        ...voucherRecord,
+                        lineItems: voucherLinesRows.filter(
+                            (vl) => vl.voucherId === voucherRecord.id
+                        ),
+                    };
+
+                    return {
+                        file: fileRecord,
+                        invoice: invoiceWithLineItems,
+                        voucher: voucherWithLines,
+                    };
+                })
+                .filter((item) => item !== null); // remove nulls
 
             return structured;
         } catch (error) {

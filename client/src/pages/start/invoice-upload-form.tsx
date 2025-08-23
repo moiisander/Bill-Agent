@@ -41,7 +41,7 @@ export function InvoiceUploadForm({
             }
 
             setSelectedFile(file);
-            onError(""); // Clear any previous errors
+            onError("");
         }
     };
 
@@ -74,7 +74,6 @@ export function InvoiceUploadForm({
         }
     };
 
-    // Helper function to convert file to base64
     const fileToBase64 = (file: File): Promise<string> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -97,7 +96,6 @@ export function InvoiceUploadForm({
             <h2 className="text-xl font-semibold text-card-foreground mb-4">
                 Upload Invoice Image
             </h2>
-
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
@@ -114,7 +112,6 @@ export function InvoiceUploadForm({
                         Supported formats: JPEG, PNG, JPG (max 5MB)
                     </p>
                 </div>
-
                 {selectedFile && (
                     <div className="p-3 bg-muted rounded-md">
                         <p className="text-sm text-foreground">
@@ -123,7 +120,6 @@ export function InvoiceUploadForm({
                         </p>
                     </div>
                 )}
-
                 <button
                     type="submit"
                     disabled={!selectedFile || processInvoiceMutation.isPending}

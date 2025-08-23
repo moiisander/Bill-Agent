@@ -7,7 +7,7 @@ import {
     vouchers,
 } from "#db/schema.js";
 import { db } from "#db/index.js";
-import { eq } from "drizzle-orm";
+import { eq, InferSelectModel } from "drizzle-orm";
 import { OCRService } from "./ocr-service.js";
 
 export class InvoiceProcessor {
@@ -36,8 +36,9 @@ export class InvoiceProcessor {
                 fileRecord.id,
                 extractedData
             );
+            const { lineItems, ...invoiceWithoutLineItems } = invoiceRecord;
             const voucherRecord = await this.saveVoucher(
-                invoiceRecord.id,
+                invoiceWithoutLineItems,
                 gaapAnalysis
             );
 
@@ -64,6 +65,7 @@ export class InvoiceProcessor {
       Schema:
       {
         "vendorName": "string",
+        "vendorAddress": "string",
         "invoiceNumber": "string", 
         "invoiceDate": "YYYY-MM-DD",
         "dueDate": "YYYY-MM-DD",
@@ -196,6 +198,7 @@ export class InvoiceProcessor {
             .values({
                 fileId,
                 vendorName: extractedData.vendorName,
+                vendorAddress: extractedData.vendorAddress,
                 invoiceNumber: extractedData.invoiceNumber,
                 invoiceDate: extractedData.invoiceDate,
                 dueDate: extractedData.dueDate,
@@ -226,16 +229,33 @@ export class InvoiceProcessor {
         };
     }
 
-    private async saveVoucher(invoiceId: number, gaapAnalysis: any) {
+    private async saveVoucher(invoice: InferSelectModel<typeof invoices>, gaapAnalysis: any) {
         const [voucherRecord] = await db
             .insert(vouchers)
             .values({
-                invoiceId,
+                invoiceId: invoice.id,
+                invoiceNumber: invoice.invoiceNumber,
+                vendorName: invoice.vendorName,
+                vendorAddress: invoice.vendorAddress,
                 accountClassification: gaapAnalysis.accountClassification,
                 expenseCategory: gaapAnalysis.expenseCategory,
                 taxTreatment: gaapAnalysis.taxTreatment,
+                companyAddress: "Fictional street 100",
+                companyName: "Fictional company",
+                dueDate: invoice.dueDate,
+                issueDate: invoice.invoiceDate,
             })
             .returning();
+
+        const year = new Date().getFullYear();
+        const voucherNumber = `${year}-${voucherRecord.id
+            .toString()
+            .padStart(6, "0")}`;
+
+        await db
+            .update(vouchers)
+            .set({ voucherNumber })
+            .where(eq(vouchers.id, voucherRecord.id));
 
         const insertedLineItems = [];
         for (const line of gaapAnalysis.voucherLines) {
