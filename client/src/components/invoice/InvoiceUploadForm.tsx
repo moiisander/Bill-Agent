@@ -60,7 +60,6 @@ export function InvoiceUploadForm({
     try {
       // Convert file to base64
       const base64Data = await fileToBase64(selectedFile);
-      
       // Process invoice using tRPC
       await processInvoiceMutation.mutateAsync({
         fileData: base64Data,
