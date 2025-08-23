@@ -3,6 +3,13 @@ import { trpc } from "../utils/trpc";
 export default function HistoryPage() {
   const { data, error, isLoading } = trpc.voucher.list.useQuery()
 
+  // Helper function to safely format currency
+  const formatCurrency = (value: string | null): string => {
+    if (!value) return '$0.00';
+    const num = parseFloat(value);
+    return isNaN(num) ? '$0.00' : `$${num.toFixed(2)}`;
+  };
+
   return (
     <div className="mx-auto max-w-4xl">
       <h1 className="text-3xl font-bold text-foreground mb-6">Invoice & Voucher History</h1>
@@ -36,7 +43,7 @@ export default function HistoryPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-lg">${invoice.totalAmount}</p>
+                      <p className="font-semibold text-lg">{formatCurrency(invoice.totalAmount)}</p>
                       <p className="text-sm text-muted-foreground">
                         {invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString() : 'Date N/A'}
                       </p>
@@ -49,7 +56,7 @@ export default function HistoryPage() {
                       <div className="space-y-1">
                         {invoice.lineItems.slice(0, 3).map((item, index) => (
                           <div key={index} className="text-sm text-muted-foreground">
-                            • {item.description} - ${item.amount}
+                            • {item.description} - {formatCurrency(item.amount)}
                           </div>
                         ))}
                         {invoice.lineItems.length > 3 && (
@@ -63,8 +70,8 @@ export default function HistoryPage() {
                   
                   <div className="flex justify-between items-center text-sm">
                     <div className="flex space-x-4">
-                      <span>Subtotal: ${invoice.subtotal}</span>
-                      <span>Tax: ${invoice.taxAmount}</span>
+                      <span>Subtotal: {formatCurrency(invoice.subtotal)}</span>
+                      <span>Tax: {formatCurrency(invoice.taxAmount)}</span>
                     </div>
                     <div className="text-right">
                       {invoice.voucher ? (

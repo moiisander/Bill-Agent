@@ -1,7 +1,10 @@
 import { initTRPC } from '@trpc/server';
 import * as trpcExpress from '@trpc/server/adapters/express';
+import superjson from "superjson";
 
-const t = initTRPC.create();
+const t = initTRPC.create({
+  transformer: superjson,
+});
 
 export const router = t.router;
 export const publicProcedure = t.procedure;

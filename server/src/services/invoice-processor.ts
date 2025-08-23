@@ -182,17 +182,22 @@ export class InvoiceProcessor {
       totalAmount: extractedData.totalAmount,
     }).returning();
 
+    const insertedLineItems = [];
     for (const item of extractedData.lineItems) {
-      await db.insert(invoiceLineItems).values({
+      const [lineItem] = await db.insert(invoiceLineItems).values({
         invoiceId: invoiceRecord.id,
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         amount: item.amount,
-      });
+      }).returning();
+      insertedLineItems.push(lineItem);
     }
-
-    return invoiceRecord;
+    
+    return {
+      ...invoiceRecord,
+      lineItems: insertedLineItems,
+    };
   }
 
   private async saveVoucher(invoiceId: number, gaapAnalysis: any) {
@@ -203,16 +208,21 @@ export class InvoiceProcessor {
       taxTreatment: gaapAnalysis.taxTreatment,
     }).returning();
 
+    const insertedLineItems = [];
     for (const line of gaapAnalysis.voucherLines) {
-      await db.insert(voucherLines).values({
+      const [lineItem] = await db.insert(voucherLines).values({
         voucherId: voucherRecord.id,
         accountCode: line.accountCode,
         description: line.description,
         debit: line.debit,
         credit: line.credit,
-      });
+      }).returning();
+      insertedLineItems.push(lineItem);
     }
 
-    return voucherRecord;
+    return {
+      ...voucherRecord,
+      lineItems: insertedLineItems,
+    };
   }
 }
