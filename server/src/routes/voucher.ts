@@ -37,8 +37,7 @@ export const voucherRouter = router({
 
                 const data = await invoiceProcessor.processInvoice(
                     tempPath,
-                    input.fileType,
-                    input.fileName
+                    input.fileType
                 );
 
                 fs.unlinkSync(tempPath);

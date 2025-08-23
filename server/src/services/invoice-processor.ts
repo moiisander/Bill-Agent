@@ -24,7 +24,7 @@ export class InvoiceProcessor {
         this.ocrService = new OCRService();
     }
 
-    async processInvoice(filePath: string, fileType: string, fileName: string) {
+    async processInvoice(filePath: string, fileName: string) {
         try {
             const ocrResult = await this.ocrService.performOCR(filePath);
 
@@ -72,6 +72,7 @@ export class InvoiceProcessor {
       Dates must be in ISO 8601 format (YYYY-MM-DD). 
       All numbers must be valid JSON numbers (no quotes, no commas, no currency symbols). 
       If a field cannot be determined, use null.
+      If there looks like a list of repeating items the should probably be fit as a row in "lineItems"
 
       Schema:
       {
@@ -98,9 +99,9 @@ export class InvoiceProcessor {
     `;
 
         try {
-            const completion = await this.openai.chat.completions.create({
-                model: "gpt-4",
-                messages: [
+            const completion = await this.openai.responses.create({
+                model: "gpt-4.1",
+                input: [
                     {
                         role: "system",
                         content:
@@ -111,10 +112,9 @@ export class InvoiceProcessor {
                         content: prompt,
                     },
                 ],
-                temperature: 0.1,
             });
 
-            const response = completion.choices[0]?.message?.content;
+            const response = completion.output_text;
             if (!response) throw new Error("No response from OpenAI");
 
             return JSON.parse(response);
@@ -162,9 +162,9 @@ export class InvoiceProcessor {
     `;
 
         try {
-            const completion = await this.openai.chat.completions.create({
-                model: "gpt-4",
-                messages: [
+            const completion = await this.openai.responses.create({
+                model: "gpt-5",
+                input: [
                     {
                         role: "system",
                         content:
@@ -175,10 +175,10 @@ export class InvoiceProcessor {
                         content: prompt,
                     },
                 ],
-                temperature: 0.1,
+                tools: [{ type: "web_search_preview" }],
             });
 
-            const response = completion.choices[0]?.message?.content;
+            const response = completion.output_text;
             if (!response) throw new Error("No response from OpenAI");
 
             return JSON.parse(response);
