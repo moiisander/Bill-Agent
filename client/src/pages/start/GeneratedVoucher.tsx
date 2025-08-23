@@ -1,4 +1,4 @@
-import type { ProcessedInvoiceData } from "@/pages/StartPage";
+import type { ProcessedInvoiceData } from "@/pages/start";
 
 interface GeneratedVoucherProps {
     processedInvoiceData: ProcessedInvoiceData;

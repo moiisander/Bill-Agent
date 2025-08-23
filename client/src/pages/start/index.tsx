@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { InvoiceUploadForm } from "../components/invoice/InvoiceUploadForm";
-import { GeneratedVoucher } from "../components/invoice/GeneratedVoucher";
-import { ProcessingStatus } from "../components/invoice/ProcessingStatus";
-import { ExistingVouchers } from "../components/invoice/ExistingVouchers";
+import { InvoiceUploadForm } from "./InvoiceUploadForm";
+import { GeneratedVoucher } from "./GeneratedVoucher";
+import { ProcessingStatus } from "./ProcessingStatus";
 import type { inferProcedureOutput } from "@trpc/server";
-import type { AppRouter } from "../../../server/src/trpc/router";
+import type { AppRouter } from "../../../../server/src/trpc/router";
 
 export type ProcessedInvoiceData = inferProcedureOutput<
     AppRouter["voucher"]["processInvoice"]
@@ -62,13 +61,8 @@ export default function StartPage() {
 
             {/* Generated Voucher */}
             {processedData && (
-                <GeneratedVoucher
-                    processedInvoiceData={processedData}
-                />
+                <GeneratedVoucher processedInvoiceData={processedData} />
             )}
-
-            {/* Existing Vouchers */}
-            <ExistingVouchers />
         </div>
     );
 }
