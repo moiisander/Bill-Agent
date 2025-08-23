@@ -54,13 +54,13 @@ export default function StartPage() {
             )}
             <ProcessingStatus isProcessing={isProcessing} />
             {processedData && (
-                <>
+                <div className="space-y-4">
                     <VoucherCard voucherData={processedData.voucher} />
                     <InvoiceCard
                         invoiceData={processedData.invoice}
                         fileData={processedData.file}
                     />
-                </>
+                </div>
             )}
         </div>
     );

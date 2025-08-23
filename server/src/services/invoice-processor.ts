@@ -9,6 +9,9 @@ import {
 import { db } from "#db/index.js";
 import { eq, InferSelectModel } from "drizzle-orm";
 import { OCRService } from "./ocr-service.js";
+import { ZodError } from "zod";
+import { extractedInvoiceSchema } from "#validations/invoice-validation.js";
+import { extractedVoucherSchema } from "#validations/voucher-validation.js";
 
 export class InvoiceProcessor {
     private openai: OpenAI;
@@ -25,21 +28,25 @@ export class InvoiceProcessor {
         try {
             const ocrResult = await this.ocrService.performOCR(filePath);
 
-            const extractedData = await this.extractInvoiceData(ocrResult.text);
+            const extractedInvoiceData = await this.extractInvoiceData(ocrResult.text);
 
-            const gaapAnalysis = await this.analyzeGAAPCompliance(
-                extractedData
+            const validatedExtractedData = extractedInvoiceSchema.parse(extractedInvoiceData);
+
+            const extractedVoucherData = await this.analyzeGAAPCompliance(
+                validatedExtractedData
             );
+
+            const validatedExtractedVoucherData = extractedVoucherSchema.parse(extractedVoucherData)
 
             const fileRecord = await this.saveFile(filePath, fileName);
             const invoiceRecord = await this.saveInvoice(
                 fileRecord.id,
-                extractedData
+                validatedExtractedData
             );
             const { lineItems, ...invoiceWithoutLineItems } = invoiceRecord;
             const voucherRecord = await this.saveVoucher(
                 invoiceWithoutLineItems,
-                gaapAnalysis
+                validatedExtractedVoucherData
             );
 
             return {
@@ -47,9 +54,13 @@ export class InvoiceProcessor {
                 invoice: invoiceRecord,
                 voucher: voucherRecord,
             };
-        } catch (error) {
-            console.error("Error processing invoice:", error);
-            throw error;
+        } catch (err) {
+            if (err instanceof ZodError) {
+                const messages = err.issues.map((issue) => issue.message);
+                throw new Error(messages.join("; "));
+            } else {
+                throw err;
+            }
         }
     }
 
@@ -229,7 +240,10 @@ export class InvoiceProcessor {
         };
     }
 
-    private async saveVoucher(invoice: InferSelectModel<typeof invoices>, gaapAnalysis: any) {
+    private async saveVoucher(
+        invoice: InferSelectModel<typeof invoices>,
+        gaapAnalysis: any
+    ) {
         const [voucherRecord] = await db
             .insert(vouchers)
             .values({

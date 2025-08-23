@@ -6,9 +6,7 @@ interface VoucherCardProps {
     voucherData: ProcessedInvoiceVoucher;
 }
 
-export function VoucherCard({
-    voucherData,
-}: VoucherCardProps) {
+export function VoucherCard({ voucherData }: VoucherCardProps) {
     const formatCurrency = (value: string | null): string => {
         if (!value) return "$0.00";
         const num = parseFloat(value);
@@ -19,9 +17,41 @@ export function VoucherCard({
         <div className="rounded-lg border bg-card p-6">
             <div className="mb-6">
                 <h3 className="text-lg font-medium text-card-foreground mb-3">
-                    Voucher Details
+                    Voucher #{voucherData.voucherNumber}
                 </h3>
                 <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                            Issue Date
+                        </label>
+                        <p className="text-foreground">
+                            {voucherData.issueDate}
+                        </p>
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                            Due Date
+                        </label>
+                        <p className="text-foreground">
+                            {voucherData.dueDate}
+                        </p>
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                            Vendor
+                        </label>
+                        <p className="text-foreground">
+                            {voucherData.vendorName}
+                        </p>
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-muted-foreground">
+                            Vendor Address
+                        </label>
+                        <p className="text-foreground">
+                            {voucherData.vendorAddress}
+                        </p>
+                    </div>
                     <div>
                         <label className="text-sm font-medium text-muted-foreground">
                             Account Classification
@@ -48,9 +78,11 @@ export function VoucherCard({
                     </div>
                     <div>
                         <label className="text-sm font-medium text-muted-foreground">
-                            Voucher ID
+                            Invoice Number
                         </label>
-                        <p className="text-foreground">#{voucherData.id}</p>
+                        <p className="text-foreground">
+                            {voucherData.invoiceNumber}
+                        </p>
                     </div>
                 </div>
 

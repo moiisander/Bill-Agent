@@ -50,7 +50,7 @@ export function InvoiceCard({ invoiceData, fileData }: InvoiceCardProps) {
                     </div>
                     <div>
                         <label className="text-sm font-medium text-muted-foreground">
-                            Vendor address
+                            Vendor Address
                         </label>
                         <p className="text-foreground">
                             {invoiceData.vendorAddress}
