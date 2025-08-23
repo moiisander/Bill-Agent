@@ -10,7 +10,7 @@ export default function HistoryPage() {
     };
 
     return (
-        <div className="mx-auto max-w-4xl">
+        <div className="max-w-4xl">
             <h1 className="text-3xl font-bold text-foreground mb-6">
                 Invoice & Voucher History
             </h1>

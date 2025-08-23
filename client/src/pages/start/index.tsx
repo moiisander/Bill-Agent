@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { InvoiceUploadForm } from "./InvoiceUploadForm";
-import { GeneratedVoucher } from "./GeneratedVoucher";
-import { ProcessingStatus } from "./ProcessingStatus";
+import { InvoiceUploadForm } from "./invoice-upload-form";
+import { GeneratedVoucher } from "./generated-voucher";
+import { ProcessingStatus } from "./processing-status";
 import type { inferProcedureOutput } from "@trpc/server";
 import type { AppRouter } from "../../../../server/src/trpc/router";
 
@@ -36,7 +36,7 @@ export default function StartPage() {
     };
 
     return (
-        <div className="mx-auto max-w-4xl">
+        <div className="max-w-4xl">
             <h1 className="text-3xl font-bold text-foreground mb-6">
                 Invoice Processing
             </h1>
