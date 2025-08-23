@@ -1,7 +1,7 @@
 import { trpc } from "../../utils/trpc";
 
 export function ExistingVouchers() {
-  const { data: existingInvoices, error: invoiceError, isLoading: invoiceLoading } = trpc.invoice.list.useQuery();
+  const { data: existingInvoices, error: invoiceError, isLoading: invoiceLoading } = trpc.voucher.list.useQuery();
 
   return (
     <div className="rounded-lg border bg-card p-6">
@@ -29,7 +29,9 @@ export function ExistingVouchers() {
               </div>
               <div className="text-right">
                 <p className="font-semibold">${invoice.totalAmount}</p>
-                <p className="text-sm text-muted-foreground">{invoice.processingStatus}</p>
+                <p className="text-sm text-muted-foreground">
+                  {invoice.voucher ? 'Voucher Created' : 'Processing'}
+                </p>
               </div>
             </div>
           ))}

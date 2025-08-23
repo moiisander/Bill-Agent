@@ -2,26 +2,29 @@ import { useState } from "react";
 import { trpc } from "../../utils/trpc";
 
 interface InvoiceUploadFormProps {
-  onVoucherGenerated: (voucher: any, ocrConfidence: number) => void;
+  onInvoiceProcessed: (data: {
+    file: any;
+    invoice: any;
+    voucher: any;
+  }) => void;
   onError: (error: string) => void;
   onProcessingStart: () => void;
   onProcessingEnd: () => void;
 }
 
 export function InvoiceUploadForm({ 
-  onVoucherGenerated, 
+  onInvoiceProcessed, 
   onError, 
   onProcessingStart, 
   onProcessingEnd 
 }: InvoiceUploadFormProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const processInvoiceMutation = trpc.invoice.processInvoice.useMutation({
+  const processInvoiceMutation = trpc.voucher.processInvoice.useMutation({
     onSuccess: (data) => {
-      if (data.success && data.voucher) {
-        onVoucherGenerated(data.voucher, data.ocrConfidence);
-        setSelectedFile(null); // Reset file input
-      }
+      // New structure: { file, invoice, voucher }
+      onInvoiceProcessed(data);
+      setSelectedFile(null); // Reset file input
     },
     onError: (error) => {
       onError(error.message);

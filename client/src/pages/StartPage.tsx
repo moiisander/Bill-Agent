@@ -1,48 +1,59 @@
 import { useState } from "react";
 import { InvoiceUploadForm } from "../components/invoice/InvoiceUploadForm";
 import { GeneratedVoucher } from "../components/invoice/GeneratedVoucher";
-import { ExistingVouchers } from "../components/invoice/ExistingVouchers";
 import { ProcessingStatus } from "../components/invoice/ProcessingStatus";
+import { ExistingVouchers } from "../components/invoice/ExistingVouchers";
 
-interface VoucherData {
-  voucherNumber: string;
-  date: string;
-  vendor: string;
-  amount: number;
-  description: string;
-  accountCode: string;
-  expenseCategory: string;
-  lineItems: Array<{
-    description: string;
-    quantity: number;
-    unitPrice: number;
-    amount: number;
-  }>;
-  taxAmount: number;
-  subtotal: number;
-  notes: string;
+interface ProcessedInvoiceData {
+  file: {
+    id: number;
+    fileName: string;
+    uploadedAt: string;
+  };
+  invoice: {
+    id: number;
+    vendorName: string;
+    invoiceNumber: string;
+    invoiceDate: string;
+    dueDate: string;
+    subtotal: number;
+    taxAmount: number;
+    totalAmount: number;
+    lineItems: Array<{
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      amount: number;
+    }>;
+  };
+  voucher: {
+    id: number;
+    accountClassification: string;
+    expenseCategory: string;
+    taxTreatment: string;
+    voucherLines: Array<{
+      accountCode: string;
+      description: string;
+      debit: number;
+      credit: number;
+    }>;
+  };
 }
 
 export default function StartPage() {
-  const [voucher, setVoucher] = useState<VoucherData | null>(null);
+  const [processedData, setProcessedData] = useState<ProcessedInvoiceData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ocrConfidence, setOcrConfidence] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleVoucherGenerated = (
-    voucherData: VoucherData,
-    confidence: number
-  ) => {
-    setVoucher(voucherData);
-    setOcrConfidence(confidence);
+  const handleInvoiceProcessed = (data: ProcessedInvoiceData) => {
+    setProcessedData(data);
     setError(null);
   };
 
   const handleError = (errorMessage: string) => {
     setError(errorMessage);
     if (errorMessage) {
-      setVoucher(null);
-      setOcrConfidence(null);
+      setProcessedData(null);
     }
   };
 
@@ -62,7 +73,7 @@ export default function StartPage() {
 
       {/* Invoice Upload Form */}
       <InvoiceUploadForm
-        onVoucherGenerated={handleVoucherGenerated}
+        onInvoiceProcessed={handleInvoiceProcessed}
         onError={handleError}
         onProcessingStart={handleProcessingStart}
         onProcessingEnd={handleProcessingEnd}
@@ -79,8 +90,12 @@ export default function StartPage() {
       <ProcessingStatus isProcessing={isProcessing} />
 
       {/* Generated Voucher */}
-      {voucher && ocrConfidence && (
-        <GeneratedVoucher voucher={voucher} ocrConfidence={ocrConfidence} />
+      {processedData && (
+        <GeneratedVoucher 
+          invoiceData={processedData.invoice}
+          voucherData={processedData.voucher}
+          fileData={processedData.file}
+        />
       )}
 
       {/* Existing Vouchers */}
